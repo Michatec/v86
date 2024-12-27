@@ -259,7 +259,7 @@
                 id: "fiwix",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
-                    url: host + "FiwixOS-3.3-i386/.img",
+                    url: host + "FiwixOS-3.4-i386/.img",
                     size: 1024 * 1024 * 1024,
                     async: true,
                     fixed_chunk_size: 1024 * 1024,
@@ -1924,7 +1924,7 @@
                 }, 3000);
             }
 
-            init_ui(settings, emulator);
+            init_ui(profile, settings, emulator);
 
             if(query_args?.has("c"))
             {
@@ -1960,7 +1960,7 @@
      * @param {Object} settings
      * @param {V86} emulator
      */
-    function init_ui(settings, emulator)
+    function init_ui(profile, settings, emulator)
     {
         $("loading").style.display = "none";
         $("runtime_options").style.display = "block";
@@ -1997,7 +1997,7 @@
 
         $("exit").onclick = function()
         {
-            emulator.stop();
+            emulator.destroy();
             location.href = location.pathname;
         };
 
@@ -2199,7 +2199,7 @@
         {
             var elem = $("get_" + type + "_image");
 
-            if(!obj || obj.size > 100 * 1024 * 1024)
+            if(!obj || obj.async)
             {
                 elem.style.display = "none";
                 return;
@@ -2207,7 +2207,7 @@
 
             elem.onclick = function(e)
             {
-                const filename = buffer.file && buffer.file.name || (settings.id + (type === "cdrom" ? ".iso" : ".img"));
+                const filename = buffer.file && buffer.file.name || ((profile?.id || "v86") + (type === "cdrom" ? ".iso" : ".img"));
 
                 if(buffer.get_as_file)
                 {

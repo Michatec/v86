@@ -2073,7 +2073,15 @@ pub unsafe fn do_page_walk(
     }
 
     let is_in_mapped_range = in_mapped_range(high);
-    let has_code = !is_in_mapped_range && jit::jit_page_has_code(Page::page_of(high));
+    let has_code = if side_effects {
+        !is_in_mapped_range && jit::jit_page_has_code(Page::page_of(high))
+    }
+    else {
+        // If side_effects is false, don't call into jit::jit_page_has_code. This value is not used
+        // anyway (we only get here by translate_address_read_no_side_effects, which only uses the
+        // address part)
+        true
+    };
     let info_bits = TLB_VALID
         | if for_writing { 0 } else { TLB_READONLY }
         | if allow_user { 0 } else { TLB_NO_USER }
@@ -2113,6 +2121,7 @@ pub unsafe fn full_clear_tlb() {
     valid_tlb_entries_count = 0;
 
     if CHECK_TLB_INVARIANTS {
+        #[allow(static_mut_refs)]
         for &entry in tlb_data.iter() {
             dbg_assert!(entry == 0);
         }
@@ -2141,6 +2150,7 @@ pub unsafe fn clear_tlb() {
     valid_tlb_entries_count = global_page_offset;
 
     if CHECK_TLB_INVARIANTS {
+        #[allow(static_mut_refs)]
         for &entry in tlb_data.iter() {
             dbg_assert!(entry == 0 || 0 != entry & TLB_GLOBAL);
         }
@@ -2181,6 +2191,7 @@ pub unsafe fn trigger_gp_jit(code: i32, eip_offset_in_page: i32) {
 
 #[no_mangle]
 pub unsafe fn trigger_fault_end_jit() {
+    #[allow(static_mut_refs)]
     let (code, error_code) = jit_fault.take().unwrap();
     if DEBUG {
         if cpu_exception_hook(code) {
@@ -2924,11 +2935,12 @@ pub unsafe fn cycle_internal() {
         );
 
         if cfg!(feature = "profiler") {
-            dbg_assert!(match ::cpu::cpu::debug_last_jump {
+            dbg_assert!(match debug_last_jump {
                 LastJump::Compiled { .. } => true,
                 _ => false,
             });
-            let last_jump_addr = ::cpu::cpu::debug_last_jump.phys_address().unwrap();
+            #[allow(static_mut_refs)]
+            let last_jump_addr = debug_last_jump.phys_address().unwrap();
             let last_jump_opcode = if last_jump_addr != 0 {
                 read32s(last_jump_addr)
             }
@@ -3412,7 +3424,7 @@ pub unsafe fn safe_read_slow_jit(
         // TODO: Could check if virtual pages point to consecutive physical and go to fast path
         // do read, write into scratch buffer
 
-        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        let scratch = &raw mut jit_paging_scratch_buffer.0 as u32;
         dbg_assert!(scratch & 0xFFF == 0);
 
         for s in addr_low..((addr_low | 0xFFF) + 1) {
@@ -3425,7 +3437,7 @@ pub unsafe fn safe_read_slow_jit(
         ((scratch as i32) ^ addr) & !0xFFF
     }
     else if in_mapped_range(addr_low) {
-        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr();
+        let scratch = &raw mut jit_paging_scratch_buffer.0[0];
 
         match bitsize {
             128 => ptr::write_unaligned(
@@ -3571,7 +3583,7 @@ pub unsafe fn safe_write_slow_jit(
             },
         }
 
-        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        let scratch = &raw mut jit_paging_scratch_buffer.0 as u32;
         dbg_assert!(scratch & 0xFFF == 0);
         ((scratch as i32) ^ addr) & !0xFFF
     }
@@ -3587,13 +3599,13 @@ pub unsafe fn safe_write_slow_jit(
             },
         }
 
-        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        let scratch = &raw mut jit_paging_scratch_buffer.0 as u32;
         dbg_assert!(scratch & 0xFFF == 0);
         ((scratch as i32) ^ addr) & !0xFFF
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(addr_low));
+            jit::jit_dirty_page(Page::page_of(addr_low));
         }
         ((addr_low as i32 + memory::mem8 as i32) ^ addr) & !0xFFF
     }
@@ -3632,7 +3644,7 @@ pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
+            jit::jit_dirty_page(Page::page_of(phys_addr));
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -3652,7 +3664,7 @@ pub unsafe fn safe_write16(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
+            jit::jit_dirty_page(Page::page_of(phys_addr));
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -3676,7 +3688,7 @@ pub unsafe fn safe_write32(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
+            jit::jit_dirty_page(Page::page_of(phys_addr));
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -3699,7 +3711,7 @@ pub unsafe fn safe_write64(addr: i32, value: u64) -> OrPageFault<()> {
         }
         else {
             if !can_skip_dirty_page {
-                jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
+                jit::jit_dirty_page(Page::page_of(phys_addr));
             }
             else {
                 dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -3723,7 +3735,7 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
         }
         else {
             if !can_skip_dirty_page {
-                jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
+                jit::jit_dirty_page(Page::page_of(phys_addr));
             }
             else {
                 dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -3745,10 +3757,10 @@ pub unsafe fn safe_read_write8(addr: i32, instruction: &dyn Fn(i32) -> i32) {
     }
     else {
         if !can_skip_dirty_page {
-            ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+            jit::jit_dirty_page(Page::page_of(phys_addr));
         }
         else {
-            dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+            dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
         }
         memory::write8_no_mmap_or_dirty_check(phys_addr, value);
     }
@@ -3771,10 +3783,10 @@ pub unsafe fn safe_read_write16(addr: i32, instruction: &dyn Fn(i32) -> i32) {
         }
         else {
             if !can_skip_dirty_page {
-                ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+                jit::jit_dirty_page(Page::page_of(phys_addr));
             }
             else {
-                dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+                dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
             }
             memory::write16_no_mmap_or_dirty_check(phys_addr, value);
         };
@@ -3799,10 +3811,10 @@ pub unsafe fn safe_read_write32(addr: i32, instruction: &dyn Fn(i32) -> i32) {
         }
         else {
             if !can_skip_dirty_page {
-                ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+                jit::jit_dirty_page(Page::page_of(phys_addr));
             }
             else {
-                dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+                dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
             }
             memory::write32_no_mmap_or_dirty_check(phys_addr, value);
         };
@@ -4064,8 +4076,8 @@ pub unsafe fn read_tsc() -> u64 {
         if TSC_VERBOSE_LOGGING || tsc_last_extra >= tsc_resolution {
             dbg_log!(
                 "rdtsc: jump from {}+{} to {} (diff {}, {}%)",
-                tsc_last_value,
-                tsc_last_extra,
+                tsc_last_value as u64,
+                tsc_last_extra as u64,
                 value,
                 value - (tsc_last_value + tsc_last_extra),
                 (100 * tsc_last_extra) / tsc_resolution,
@@ -4248,9 +4260,11 @@ pub unsafe fn trigger_ss(code: i32) {
 pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }
 
 #[no_mangle]
-pub unsafe fn handle_irqs() {
+pub unsafe fn handle_irqs() { handle_irqs_internal(&mut pic::get_pic()) }
+
+pub unsafe fn handle_irqs_internal(pic: &mut pic::Pic) {
     if *flags & FLAG_INTERRUPT != 0 {
-        if let Some(irq) = pic::pic_acknowledge_irq() {
+        if let Some(irq) = pic::pic_acknowledge_irq(pic) {
             pic_call_irq(irq)
         }
         else if *acpi_enabled {
@@ -4375,7 +4389,7 @@ pub unsafe fn reset_cpu() {
 
     update_state_flags();
 
-    jit::jit_clear_cache(jit::get_jit_state());
+    jit::jit_clear_cache_js();
 }
 
 #[no_mangle]
