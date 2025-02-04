@@ -668,6 +668,15 @@
                 homepage: "https://github.com/nanochess/bootLogo",
             },
             {
+                id: "pillman",
+                fda: {
+                    url: host + "pillman.img",
+                    size: 512,
+                },
+                name: "Pillman",
+                homepage: "https://github.com/nanochess/Pillman",
+            },
+            {
                 id: "sectorlisp",
                 fda: {
                     url: host + "sectorlisp-friendly.bin",
@@ -752,21 +761,21 @@
                 id: "windows2000",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    url: host + "windows2k/.img",
+                    url: host + "windows2k-v2/.img",
                     size: 2 * 1024 * 1024 * 1024,
                     async: true,
                     fixed_chunk_size: 256 * 1024,
                     use_parts: true,
                 },
                 name: "Windows 2000",
-                state: { url: host + "windows2k_state-v2.bin.zst" },
+                state: { url: host + "windows2k_state-v3.bin.zst" },
                 mac_address_translation: true,
             },
             {
                 id: "windows2000-boot",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    url: host + "windows2k/.img",
+                    url: host + "windows2k-v2/.img",
                     size: 2 * 1024 * 1024 * 1024,
                     async: true,
                     fixed_chunk_size: 256 * 1024,
@@ -776,15 +785,15 @@
             },
             {
                 id: "windows-me",
-                memory_size: 128 * 1024 * 1024,
+                memory_size: 256 * 1024 * 1024,
                 hda: {
-                    url: host + "windowsme/.img",
+                    url: host + "windowsme-v2/.img",
                     size: 834666496,
                     async: true,
                     fixed_chunk_size: 256 * 1024,
                     use_parts: true,
                 },
-                state: { url: host + "windows-me_state.bin.zst" },
+                state: { url: host + "windows-me_state-v2.bin.zst" },
                 name: "Windows ME",
             },
             {
@@ -799,6 +808,18 @@
                 },
                 name: "Windows NT 4.0",
                 cpuid_level: 2,
+            },
+            {
+                id: "windowsnt35",
+                memory_size: 256 * 1024 * 1024,
+                hda: {
+                    url: host + "windowsnt351/.img",
+                    size: 163577856,
+                    async: true,
+                    fixed_chunk_size: 256 * 1024,
+                    use_parts: true,
+                },
+                name: "Windows NT 3.51",
             },
             {
                 id: "windowsnt3",
@@ -1326,6 +1347,36 @@
                 },
                 homepage: "https://www.tinyaros.it/",
             },
+            {
+                id: "dancy",
+                name: "Dancy",
+                cdrom: {
+                    url: host + "dancy.iso",
+                    size: 10485760,
+                    async: false,
+                },
+                homepage: "https://github.com/Tiihala/Dancy",
+            },
+            {
+                id: "curios",
+                name: "CuriOS",
+                hda: {
+                    url: host + "curios.img",
+                    size: 83886080,
+                    async: false,
+                },
+                homepage: "https://github.com/h5n1xp/CuriOS",
+            },
+            {
+                id: "os64",
+                name: "OS64",
+                cdrom: {
+                    url: host + "os64boot.iso",
+                    size: 5580800,
+                    async: false,
+                },
+                homepage: "https://os64.blogspot.com/",
+            },
         ];
 
         if(DEBUG)
@@ -1530,6 +1581,7 @@
             }
         }
         set_proxy_value("network_none", "");
+        set_proxy_value("network_inbrowser", "inbrowser");
         set_proxy_value("network_fetch", "fetch");
         set_proxy_value("network_relay", "wss://relay.widgetry.org/");
         set_proxy_value("network_wisp", "wisps://wisp.mercurywork.shop/v86/");
