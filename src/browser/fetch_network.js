@@ -21,7 +21,7 @@ function FetchNetworkAdapter(bus, config)
     this.doh_server = config.doh_server;
     this.tcp_conn = {};
     this.eth_encoder_buf = create_eth_encoder_buf();
-    this.fetch = fetch;
+    this.fetch = (...args) => fetch(...args);
 
     // Ex: 'https://corsproxy.io/?'
     this.cors_proxy = config.cors_proxy;
@@ -33,8 +33,6 @@ function FetchNetworkAdapter(bus, config)
     {
         this.send(data);
     }, this);
-
-    //Object.seal(this);
 }
 
 FetchNetworkAdapter.prototype.destroy = function()
@@ -47,7 +45,7 @@ FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
         let conn = new TCPConnection();
         conn.state = TCP_STATE_SYN_RECEIVED;
         conn.net = this;
-        conn.on_data = on_data_http;
+        conn.on("data", on_data_http);
         conn.tuple = tuple;
         conn.accept(packet);
         this.tcp_conn[tuple] = conn;
@@ -59,6 +57,11 @@ FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
 FetchNetworkAdapter.prototype.connect = function(port)
 {
     return fake_tcp_connect(port, this);
+};
+
+FetchNetworkAdapter.prototype.tcp_probe = function(port)
+{
+    return fake_tcp_probe(port, this);
 };
 
 /**

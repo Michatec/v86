@@ -677,6 +677,15 @@
                 homepage: "https://github.com/nanochess/Pillman",
             },
             {
+                id: "invaders",
+                fda: {
+                    url: host + "invaders.img",
+                    size: 512,
+                },
+                name: "Invaders",
+                homepage: "https://github.com/nanochess/Invaders",
+            },
+            {
                 id: "sectorlisp",
                 fda: {
                     url: host + "sectorlisp-friendly.bin",
@@ -1040,13 +1049,13 @@
                 id: "9front",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
-                    url: host + "9front-8963.f84cf1e60427675514fb056cc1723e45da01e043.386/.iso",
-                    size: 477452288,
+                    url: host + "9front-10931.386/.iso",
+                    size: 489453568,
                     async: true,
                     fixed_chunk_size: 1024 * 1024,
                     use_parts: true,
                 },
-                state: { url: host + "9front_state-v2.bin.zst" },
+                state: { url: host + "9front_state-v3.bin.zst" },
                 acpi: true,
                 name: "9front",
                 homepage: "https://9front.org/",
@@ -1055,8 +1064,8 @@
                 id: "9front-boot",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
-                    url: host + "9front-8963.f84cf1e60427675514fb056cc1723e45da01e043.386/.iso",
-                    size: 477452288,
+                    url: host + "9front-10931.386/.iso",
+                    size: 489453568,
                     async: true,
                     fixed_chunk_size: 1024 * 1024,
                     use_parts: true,
@@ -1525,50 +1534,81 @@
             };
         });
 
-        const filter_elements = document.querySelectorAll("#filter input");
-        for(const element of filter_elements)
+        const known_filter = [
+            [   // Family:
+                { id: "linux", condition: os => os.family === "Linux" },
+                { id: "bsd", condition: os => os.family === "BSD" },
+                { id: "windows", condition: os => os.family === "Windows" },
+                { id: "unix", condition: os => os.family === "Unix" },
+                { id: "dos", condition: os => os.family === "DOS" },
+                { id: "custom", condition: os => os.family === "Custom" },
+            ],
+            [   // UI:
+                { id: "graphical", condition: os => os.graphical },
+                { id: "text", condition: os => !os.graphical },
+            ],
+            [   // Medium:
+                { id: "floppy", condition: os => os.medium === "Floppy" },
+                { id: "cd", condition: os => os.medium === "CD" },
+                { id: "hd", condition: os => os.medium === "HD" },
+            ],
+            [   // Size:
+                { id: "bootsector", condition: os => os.size <= 512 },
+                { id: "lt5mb", condition: os => os.size <= 5 * 1024 * 1024 },
+                { id: "gt5mb", condition: os => os.size > 5 * 1024 * 1024 },
+            ],
+            [   // Status:
+                { id: "modern", condition: os => os.status === "Modern" },
+                { id: "historic", condition: os => os.status === "Historic" },
+            ],
+            [   // License:
+                { id: "opensource", condition: os => os.source === "Open-source" },
+                { id: "proprietary", condition: os => os.source === "Proprietary" },
+            ],
+            [   // Arch:
+                { id: "16bit", condition: os => os.arch === "16-bit" },
+                { id: "32bit", condition: os => os.arch === "32-bit" },
+            ],
+            [   // Lang:
+                { id: "asm", condition: os => os.languages.has("ASM") },
+                { id: "c", condition: os => os.languages.has("C") },
+                { id: "cpp", condition: os => os.languages.has("C++") },
+                { id: "other_lang", condition: os => ["ASM", "C", "C++"].every(lang => !os.languages.has(lang)) },
+            ],
+        ];
+
+        const defined_filter = [];
+        for(const known_category of known_filter)
         {
-            element.onchange = update_filters;
+            const category = known_category.filter(filter => {
+                const element = document.getElementById(`filter_${filter.id}`);
+                if(element)
+                {
+                    element.onchange = update_filters;
+                    filter.element = element;
+                }
+                return element;
+            });
+            if(category.length)
+            {
+                defined_filter.push(category);
+            }
         }
 
         function update_filters()
         {
-            const filter = {};
-            for(const element of filter_elements)
+            const conjunction = [];
+            for(const category of defined_filter)
             {
-                filter[element.id.replace(/filter_/, "")] = element.checked;
+                const disjunction = category.filter(filter => filter.element.checked);
+                if(disjunction.length)
+                {
+                    conjunction.push(disjunction);
+                }
             }
-
-            const show_all = !Object.values(filter).includes(true);
             for(const os of os_info)
             {
-                const show = show_all ||
-                    filter["graphical"] && os.graphical ||
-                    filter["text"] && !os.graphical ||
-                    filter["linux"] && os.family === "Linux" ||
-                    filter["bsd"] && os.family === "BSD" ||
-                    filter["windows"] && os.family === "Windows" ||
-                    filter["unix"] && os.family === "Unix" ||
-                    filter["dos"] && os.family === "DOS" ||
-                    filter["custom"] && os.family === "Custom" ||
-                    filter["floppy"] && os.medium === "Floppy" ||
-                    filter["cd"] && os.medium === "CD" ||
-                    filter["hd"] && os.medium === "HD" ||
-                    filter["modern"] && os.status === "Modern" ||
-                    filter["historic"] && os.status === "Historic" ||
-                    filter["opensource"] && os.source === "Open-source" ||
-                    filter["proprietary"] && os.source === "Proprietary" ||
-                    filter["bootsector"] && os.size <= 512 ||
-                    filter["lt5mb"] && os.size <= 5 * 1024 * 1024 ||
-                    filter["gt5mb"] && os.size > 5 * 1024 * 1024 ||
-                    filter["16bit"] && os.arch === "16-bit" ||
-                    filter["32bit"] && os.arch === "32-bit" ||
-                    filter["asm"] && os.languages.has("ASM") ||
-                    filter["c"] && os.languages.has("C") ||
-                    filter["cpp"] && os.languages.has("C++") ||
-                    filter["other_lang"] && ["Java", "Haskell", "Rust", "Erlang", "Oberon"].some(l => os.languages.has(l));
-
-                os.element.style.display = show ? "" : "none";
+                os.element.style.display = conjunction.every(disjunction => disjunction.some(filter => filter.condition(os))) ? "" : "none";
             }
         }
 
@@ -2687,7 +2727,7 @@
     {
         if(window.history.pushState)
         {
-            let search = "?" + params.entries().map(([key, value]) => key + "=" + value.replace(/[?&=#+]/g, encodeURIComponent))["toArray"]().join("&");
+            let search = "?" + Array.from(params.entries()).map(([key, value]) => key + "=" + value.replace(/[?&=#+]/g, encodeURIComponent)).join("&");
             window.history.pushState({ search }, "", search);
         }
     }

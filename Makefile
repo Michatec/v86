@@ -21,7 +21,7 @@ WASM_OPT ?= false
 
 default: build/v86-debug.wasm
 all: build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm
-all-debug: build/libv86-debug.js build/v86-debug.wasm
+all-debug: build/libv86-debug.js build/libv86-debug.mjs build/v86-debug.wasm
 browser: build/v86_all.js
 
 # Used for nodejs builds and in order to profile code.
@@ -173,6 +173,22 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
 
+build/libv86-debug.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) \
+		--js_output_file build/libv86-debug.mjs\
+		--define=DEBUG=true\
+		$(CLOSURE_FLAGS)\
+		--compilation_level SIMPLE\
+		--jscomp_off=missingProperties\
+		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86; export let {V86, CPU} = module.exports;'\
+		--js $(CORE_FILES)\
+		--js $(BROWSER_FILES)\
+		--js $(LIB_FILES)\
+		--chunk_output_type=ES_MODULES\
+		--emit_use_strict=false
+	ls -lh build/libv86-debug.mjs
+
 src/rust/gen/jit.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit
 src/rust/gen/jit0f.rs: $(JIT_DEPENDENCIES)
@@ -277,39 +293,39 @@ build/integration-test-fs/fs.json: images/buildroot-bzimage68.bin
 	./tools/copy-to-sha256.py build/integration-test-fs/fs.tar build/integration-test-fs/flat
 	rm build/integration-test-fs/fs.tar build/integration-test-fs/bzImage build/integration-test-fs/initrd
 
-tests: all-debug build/integration-test-fs/fs.json
-	./tests/full/run.js
+tests: build/libv86-debug.js build/v86-debug.wasm build/integration-test-fs/fs.json
+	LOG_LEVEL=3 ./tests/full/run.js
 
 tests-release: build/libv86.js build/v86.wasm build/integration-test-fs/fs.json
 	TEST_RELEASE_BUILD=1 ./tests/full/run.js
 
-nasmtests: all-debug
+nasmtests: build/libv86-debug.js build/v86-debug.wasm
 	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
-nasmtests-force-jit: all-debug
+nasmtests-force-jit: build/libv86-debug.js build/v86-debug.wasm
 	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js --force-jit
 
-jitpagingtests: all-debug
+jitpagingtests: build/libv86-debug.js build/v86-debug.wasm
 	$(MAKE) -C tests/jit-paging test-jit
 	./tests/jit-paging/run.js
 
-qemutests: all-debug
+qemutests: build/libv86-debug.js build/v86-debug.wasm
 	$(MAKE) -C tests/qemu test-i386
-	./tests/qemu/run.js > build/qemu-test-result
+	LOG_LEVEL=3 ./tests/qemu/run.js build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
 qemutests-release: build/libv86.js build/v86.wasm
 	$(MAKE) -C tests/qemu test-i386
-	TEST_RELEASE_BUILD=1 time ./tests/qemu/run.js > build/qemu-test-result
+	TEST_RELEASE_BUILD=1 time ./tests/qemu/run.js build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
-kvm-unit-test: all-debug
+kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
 	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
@@ -317,11 +333,11 @@ kvm-unit-test-release: build/libv86.js build/v86.wasm
 	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
-expect-tests: all-debug build/libwabt.js
+expect-tests: build/libv86-debug.js build/v86-debug.wasm build/libwabt.js
 	make -C tests/expect/tests
 	./tests/expect/run.js
 
-devices-test: all-debug
+devices-test: build/libv86-debug.js build/v86-debug.wasm
 	./tests/devices/virtio_9p.js
 	./tests/devices/virtio_console.js
 	./tests/devices/fetch_network.js
@@ -336,7 +352,7 @@ rust-test: $(RUST_FILES)
 rust-test-intensive:
 	QUICKCHECK_TESTS=100000000 make rust-test
 
-api-tests: all-debug
+api-tests: build/libv86-debug.js build/v86-debug.wasm
 	./tests/api/clean-shutdown.js
 	./tests/api/state.js
 	./tests/api/reset.js
@@ -345,7 +361,7 @@ api-tests: all-debug
 	./tests/api/reboot.js
 	./tests/api/pic.js
 
-all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
+all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests expect-tests
 	# Skipping:
 	# - devices-test (hangs)
 

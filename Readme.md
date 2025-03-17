@@ -26,7 +26,7 @@ list of emulated hardware:
 - A PCI bus. This one is partly incomplete and not used by every device.
 - An IDE disk controller.
 - An NE2000 (RTL8390) PCI network card.
-- A VirtIO filesystem.
+- Various virtio devices: Filesystem, network and balloon.
 - A SoundBlaster 16 sound card.
 
 ## Demos
@@ -74,19 +74,13 @@ list of emulated hardware:
 Here's an overview of the operating systems supported in v86:
 
 - Linux works pretty well. 64-bit kernels are not supported.
-  - Damn Small Linux (2.4.31 kernel) works.
-  - Fedora 30 works.
-  - All tested versions of TinyCore work.
   - [Buildroot](https://buildroot.uclibc.org) can be used to build a minimal image.
     [humphd/browser-vm](https://github.com/humphd/browser-vm) and
     [darin755/browser-buildroot](https://github.com/Darin755/browser-buildroot) have some useful scripts for building one.
   - [SkiffOS](https://github.com/skiffos/SkiffOS/tree/master/configs/browser/v86) (based on Buildroot) can cross-compile a custom image.
-  - Arch Linux 32 works. See [archlinux.md](docs/archlinux.md) for building an image.
-  - Debian works.
-  - Ubuntu works up to the latest version that supported i386 (16.04 LTS or 18.04 LTS for some variants).
+  - Ubuntu and other Debian derivatives works up to the latest version that supported i386 (16.04 LTS or 18.04 LTS for some variants).
   - Alpine Linux works. An image can be built from a Dockerfile, see [tools/docker/alpine/](tools/docker/alpine/).
-  - Slackware works.
-  - Void Linux works.
+  - Arch Linux 32 works. See [archlinux.md](docs/archlinux.md) for building an image.
 - ReactOS works.
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
 - KolibriOS works.
@@ -169,6 +163,7 @@ See [tests/Readme.md](tests/Readme.md) for more information.
 - [A Lua interpreter](examples/lua.html)
 - [Two instances in one window](examples/two_instances.html)
 - [Networking between browser windows/tabs using the Broadcast Channel API](examples/broadcast-network.html)
+- [TCP Terminal (fetch-based networking)](examples/tcp_terminal.html)
 - [Saving and restoring emulator state](examples/save_restore.html)
 
 Using v86 for your own purposes is as easy as:
@@ -216,7 +211,3 @@ repository under their own licenses:
 ## More questions?
 
 Shoot me an email to `copy@copy.sh`. Please report bugs on GitHub.
-
-## Author
-
-Fabian Hemmer (https://copy.sh/, `copy@copy.sh`)

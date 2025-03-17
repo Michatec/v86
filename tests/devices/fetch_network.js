@@ -107,7 +107,12 @@ const tests =
         allow_failure: true,
         start: async () =>
         {
+            let open = await emulator.network_adapter.tcp_probe(80);
+            assert(!open, "Probe shows port not open");
             emulator.serial0_send("echo -n hello | socat TCP4-LISTEN:80 - && echo -e done\\\\tlisten\n");
+            await wait(1000);
+            open = await emulator.network_adapter.tcp_probe(80);
+            assert(open, "Probe shows port open, but does not show as a connection");
             await wait(1000);
             let h = emulator.network_adapter.connect(80);
             h.on("connect", () => {
@@ -218,27 +223,11 @@ emulator.add_listener("emulator-ready", function () {
             let headers = new Headers();
             headers.append("Content-Type", "text/plain");
             headers.append("Content-Length", contents.length);
-            return new Promise(res => setTimeout(() => res((
-                {
-                    status: 200,
-                    statusText: "OK",
-                    headers: headers,
-                    body: {
-                        getReader() {
-                            return {
-                                async read() {
-                                    return {
-                                        value: contents,
-                                        done: true
-                                    };
-                                }
-                            };
-                        }
-                    }
-                }
-            )), 50));
+            return new Promise(res => setTimeout(() => res(new Response(contents, {
+                headers
+            })), 50));
         }
-        return original_fetch.call(network_adapter, url, opts);
+        return original_fetch(url, opts);
     };
 });
 

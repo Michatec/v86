@@ -122,6 +122,7 @@ jobs:
             build/libv86*.js
             build/libv86*.js.map
             build/v86*.wasm
+            build/*.mjs
 
   upload:
     name: Upload release
@@ -153,5 +154,5 @@ jobs:
           tag: latest
           commit: master
           body: ${{ github.event.head_commit.message }}
-          artifacts: "build/libv86*.js,build/libv86*.js.map,build/v86*.wasm"
+          artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm"
           prerelease: true
