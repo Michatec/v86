@@ -385,3 +385,8 @@ build/xterm.js:
 	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/lib/xterm.min.js > build/xterm.js
 	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/lib/xterm.js.map > build/xterm.js.map
 	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/css/xterm.css > build/xterm.css
+
+update-package-json-version:
+	git describe --tags --exclude latest | sed 's/-/./' | tr - + | tee build/version
+	jq --arg version "$$(cat build/version)" '.version = $$version' package.json > package.json.tmp
+	mv package.json.tmp package.json

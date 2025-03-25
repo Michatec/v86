@@ -22,12 +22,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: tree:0
 
       - name: Setup Node.js version
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           check-latest: true
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup toolchain
         run: |
@@ -114,11 +118,17 @@ jobs:
       - name: Run expect tests
         run: make expect-tests
 
+      - name: Update package.json version
+        run: make update-package-json-version
+
       - name: Upload the artifact
         uses: actions/upload-artifact@v4
         with:
           name: v86
           path: |
+            package.json
+            LICENSE
+            Readme.md
             build/libv86*.js
             build/libv86*.js.map
             build/v86*.wasm
@@ -129,6 +139,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/master'
+
+    permissions:
+      id-token: write
+      contents: write
 
     steps:
       - name: Delete old release and tag
@@ -142,10 +156,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: v86
-          path: build
 
       - name: Display structure of downloaded files
         run: ls -R
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Release to GitHub
         uses: ncipollo/release-action@v1
@@ -156,3 +174,7 @@ jobs:
           body: ${{ github.event.head_commit.message }}
           artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm"
           prerelease: true
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
