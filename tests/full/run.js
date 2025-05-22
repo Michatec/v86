@@ -1,31 +1,27 @@
 #!/usr/bin/env node
-"use strict";
+
+import assert from "node:assert/strict";
+import cluster from "node:cluster";
+import os from "node:os";
+import fs from "node:fs";
+import url from "node:url";
+
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 process.on("unhandledRejection", exn => { throw exn; });
 
 var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
 var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
 var TEST_NAME = process.env.TEST_NAME;
-const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
 
 const VERBOSE = false;
 const LOG_SCREEN = false;
 
-try
-{
-    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-}
-catch(e)
-{
-    console.error("Failed to import build/libv86-debug.js. Run `make build/libv86-debug.js first.");
-    process.exit(1);
-}
 
-const assert = require("assert").strict;
-var cluster = require("cluster");
-var os = require("os");
-var fs = require("fs");
 var root_path = __dirname + "/../..";
 
 var SCREEN_WIDTH = 80;
@@ -79,7 +75,7 @@ function send_work_to_worker(worker, message)
     }
 }
 
-if(cluster.isMaster)
+if(cluster.isPrimary)
 {
     var tests = [
         {
@@ -810,6 +806,41 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "Fiwix",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/FiwixOS-3.4-i386.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            expected_texts: [
+                "(root):~#",
+            ],
+            actions: [
+                { on_text: "(root):~#", run: "/usr/games/lsdoom\n" },
+            ],
+        },
+        {
+            name: "9legacy",
+            use_small_bios: true, // has issues with 256k bios
+            skip_if_disk_image_missing: true,
+            net_device: { type: "none" }, // if netdevice is found, waits for dhcp before starting desktop
+            timeout: 5 * 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/9legacy.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            expected_texts: [
+                "Selection:",
+            ],
+            actions: [
+                { on_text: "Selection:", run: "1\n" },
+            ],
+            expected_serial_text: [
+                "init: starting",
+            ],
+        },
+        {
             name: "Linux with Postgres",
             skip_if_disk_image_missing: true,
             timeout: 5 * 60,
@@ -918,7 +949,6 @@ if(cluster.isMaster)
         var worker = cluster.fork();
 
         worker.on("message", send_work_to_worker.bind(null, worker));
-        worker.on("online", send_work_to_worker.bind(null, worker));
 
         worker.on("exit", function(code, signal)
         {
@@ -949,6 +979,7 @@ else
             process.send("I'm done");
         });
     });
+    process.send("up");
 }
 
 function bytearray_starts_with(arr, search)
@@ -1054,6 +1085,7 @@ function run_test(test, done)
     settings.acpi = test.acpi;
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
+    settings.net_device = test.net_device;
     settings.disable_jit = +process.env.DISABLE_JIT;
 
     if(test.expected_texts)

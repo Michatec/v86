@@ -1,11 +1,14 @@
-"use strict";
+import { dbg_assert } from "../log.js";
+
+// Draws entire buffer and visualizes the layers that would be drawn
+export const DEBUG_SCREEN_LAYERS = DEBUG && false;
 
 /**
  * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor
  * @param {Object} options
  */
-function ScreenAdapter(options, screen_fill_buffer)
+export function ScreenAdapter(options, screen_fill_buffer)
 {
     const screen_container = options.container;
     this.screen_fill_buffer = screen_fill_buffer;
