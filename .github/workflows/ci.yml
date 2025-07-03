@@ -175,6 +175,3 @@ jobs:
           artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm"
           prerelease: true
 
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
