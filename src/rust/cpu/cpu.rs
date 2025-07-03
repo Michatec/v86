@@ -3288,7 +3288,7 @@ pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
 }
 
 pub unsafe fn safe_read_f32(addr: i32) -> OrPageFault<f32> {
-    Ok(std::mem::transmute(safe_read32s(addr)?))
+    Ok(f32::from_bits(i32::cast_unsigned(safe_read32s(addr)?)))
 }
 
 pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<u64> {
@@ -3542,10 +3542,11 @@ pub unsafe fn safe_write_slow_jit(
     if Page::page_of(*instruction_pointer as u32) == Page::page_of(addr as u32) {
         // XXX: Check based on virtual address
         dbg_log!(
-            "SMC: bits={} eip={:x} writeaddr={:x}",
+            "SMC: bits={} eip={:x} writeaddr={:x} value={:x}",
             bitsize,
             (*instruction_pointer & !0xFFF | eip_offset_in_page) as u32,
-            addr as u32
+            addr as u32,
+            value_low,
         );
     }
     let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
