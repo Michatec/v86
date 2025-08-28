@@ -574,7 +574,7 @@ VGAScreen.prototype.vga_memory_read = function(addr)
     // VGA chip only decodes addresses within the selected memory space.
     if(addr < 0 || addr >= VGA_HOST_MEMORY_SPACE_SIZE[memory_space_select])
     {
-        dbg_log("vga read outside memory space: addr:" + h(addr), LOG_VGA);
+        dbg_log("vga read outside memory space: addr:" + h(addr >>> 0), LOG_VGA);
         return 0;
     }
 
@@ -648,7 +648,7 @@ VGAScreen.prototype.vga_memory_write = function(addr, value)
 
     if(addr < 0 || addr >= VGA_HOST_MEMORY_SPACE_SIZE[memory_space_select])
     {
-        dbg_log("vga write outside memory space: addr:" + h(addr) + ", value:" + h(value), LOG_VGA);
+        dbg_log("vga write outside memory space: addr:" + h(addr >>> 0) + ", value:" + h(value), LOG_VGA);
         return;
     }
 
@@ -2224,6 +2224,16 @@ VGAScreen.prototype.port1CF_write = function(value)
         this.graphical_mode = true;
         this.screen.set_mode(this.graphical_mode);
         this.set_size_graphical(this.svga_width, this.svga_height, this.svga_width, this.svga_height, this.svga_bpp);
+    }
+
+    if(was_enabled && !this.svga_enabled)
+    {
+        const is_graphical = (this.attribute_mode & 0x1) !== 0;
+        this.graphical_mode = is_graphical;
+        this.screen.set_mode(is_graphical);
+        this.update_vga_size();
+        this.set_font_bitmap(false);
+        this.complete_redraw();
     }
 
     if(!this.svga_enabled)

@@ -237,7 +237,9 @@ export function KeyboardAdapter(bus)
         "Insert": 0xe052,
         "Delete": 0xe053,
 
+        "MetaLeft": 0xe05b,
         "OSLeft": 0xe05b,
+        "MetaRight": 0xe05c,
         "OSRight": 0xe05c,
         "ContextMenu": 0xe05d,
     };
@@ -251,6 +253,7 @@ export function KeyboardAdapter(bus)
             window.removeEventListener("keyup", keyup_handler, false);
             window.removeEventListener("keydown", keydown_handler, false);
             window.removeEventListener("blur", blur_handler, false);
+            window.removeEventListener("input", input_handler, false);
         }
     };
 
@@ -265,6 +268,7 @@ export function KeyboardAdapter(bus)
         window.addEventListener("keyup", keyup_handler, false);
         window.addEventListener("keydown", keydown_handler, false);
         window.addEventListener("blur", blur_handler, false);
+        window.addEventListener("input", input_handler, false);
     };
     this.init();
 
@@ -377,6 +381,37 @@ export function KeyboardAdapter(bus)
         keys_pressed = {};
     }
 
+    function input_handler(e)
+    {
+        if(!keyboard.bus)
+        {
+            return;
+        }
+
+        if(!may_handle(e))
+        {
+            return;
+        }
+
+        switch(e.inputType)
+        {
+            case "insertText":
+                for(var i = 0; i < e.data.length; i++)
+                {
+                    keyboard.simulate_char(e.data[i]);
+                }
+                break;
+
+            case "insertLineBreak":
+                keyboard.simulate_press(13); // enter
+                break;
+
+            case "deleteContentBackward":
+                keyboard.simulate_press(8); // backspace
+                break;
+        }
+    }
+
     /**
      * @param {KeyboardEvent|Object} e
      * @param {boolean} keydown
@@ -390,6 +425,12 @@ export function KeyboardAdapter(bus)
 
         if(!may_handle(e))
         {
+            return;
+        }
+
+        if(e.code === "" || e.key === "Process" || e.key === "Unidentified" || e.keyCode === 229)
+        {
+            // Handling mobile browsers and virtual keyboards
             return;
         }
 

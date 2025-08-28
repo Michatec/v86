@@ -1,7 +1,7 @@
 import { V86 } from "./starter.js";
 import { LOG_NAMES } from "../const.js";
 import { SyncBuffer, SyncFileBuffer } from "../buffer.js";
-import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
+import { h, pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
 import { log_data, LOG_LEVEL, set_log_level } from "../log.js";
 import * as iso9660 from "../iso9660.js";
 
@@ -12,6 +12,8 @@ const DEFAULT_NETWORKING_PROXIES = ["wss://relay.widgetry.org/", "ws://localhost
 const DEFAULT_MEMORY_SIZE = 128;
 const DEFAULT_VGA_MEMORY_SIZE = 8;
 const DEFAULT_BOOT_ORDER = 0;
+
+const MAX_ARRAY_BUFFER_SIZE_MB = 2000;
 
 function query_append()
 {
@@ -326,6 +328,7 @@ function onload()
                 use_parts: true,
             },
             name: "BeOS 5",
+            // NOTE: segfaults if 256k bios is used
         },
         {
             id: "msdos",
@@ -459,6 +462,7 @@ function onload()
             name: "Buildroot Linux",
             filesystem: {},
             cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
+            mouse_disabled_default: true,
         },
         {
             id: "buildroot6",
@@ -1464,6 +1468,19 @@ function onload()
             memory_size: 512 * 1024 * 1024,
             homepage: "https://archive.org/details/brightv4000"
         },
+        {
+            id: "archhurd",
+            name: "Arch Hurd",
+            hda: {
+                url: host + "archhurd-2018.09.28/.img.zst",
+                size: 4294967296,
+                async: true,
+                fixed_chunk_size: 1024 * 1024,
+                use_parts: true,
+            },
+            memory_size: 512 * 1024 * 1024,
+            homepage: "https://archhurd.org/",
+        },
     ];
 
     if(DEBUG)
@@ -1592,6 +1609,42 @@ function onload()
     if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
 
+    for(const dev of ["fda", "fdb"])
+    {
+        const toggle = $(dev + "_toggle_empty_disk");
+        if(!toggle) continue;
+
+        toggle.onclick = function(e)
+        {
+            e.preventDefault();
+            const select = document.createElement("select");
+            select.id = dev + "_empty_size";
+            for(const n_sect of [320, 360, 400, 640, 720, 800, 1440, 2400, 2880, 3444, 5760, 7680])
+            {
+                const n_bytes = n_sect * 512, kB = 1024, MB = kB * 1000;
+                const option = document.createElement("option");
+                if(n_bytes < MB)
+                {
+                    option.textContent = (n_bytes / kB) + " kB";
+                }
+                else
+                {
+                    option.textContent = (n_bytes / MB).toFixed(2) + " MB";
+                }
+                if(n_sect === 2880)
+                {
+                    option.selected = true;
+                }
+                option.value = n_bytes;
+                select.appendChild(option);
+            }
+            // TODO (when closure compiler supports it): parent.parentNode.replaceChildren(...);
+            const parent = toggle.parentNode;
+            parent.innerHTML = "";
+            parent.append("Empty disk of ", select);
+        };
+    }
+
     for(const dev of ["hda", "hdb"])
     {
         const toggle = $(dev + "_toggle_empty_disk");
@@ -1603,7 +1656,9 @@ function onload()
             const input = document.createElement("input");
             input.id = dev + "_empty_size";
             input.type = "number";
-            input.min = "1";
+            input.min = "0";
+            input.max = String(MAX_ARRAY_BUFFER_SIZE_MB);
+            input.step = "100";
             input.value = "100";
             // TODO (when closure compiler supports it): parent.parentNode.replaceChildren(...);
             const parent = toggle.parentNode;
@@ -1827,6 +1882,7 @@ function start_emulation(profile, query_args)
         settings.initial_state = profile.state;
         settings.filesystem = profile.filesystem;
         settings.fda = profile.fda;
+        settings.fdb = profile.fdb;
         settings.cdrom = profile.cdrom;
         settings.hda = profile.hda;
         settings.hdb = profile.hdb;
@@ -1975,10 +2031,25 @@ function start_emulation(profile, query_args)
         {
             settings.vga_bios = { buffer: vga_bios };
         }
-        const fda = $("floppy_image").files[0];
+        const fda = $("fda_image")?.files[0];
         if(fda)
         {
             settings.fda = { buffer: fda };
+        }
+        const fda_empty_size = +$("fda_empty_size")?.value;
+        if(fda_empty_size)
+        {
+            settings.fda = { buffer: new ArrayBuffer(fda_empty_size) };
+        }
+        const fdb = $("fdb_image")?.files[0];
+        if(fdb)
+        {
+            settings.fdb = { buffer: fdb };
+        }
+        const fdb_empty_size = +$("fdb_empty_size")?.value;
+        if(fdb_empty_size)
+        {
+            settings.fdb = { buffer: new ArrayBuffer(fdb_empty_size) };
         }
         const cdrom = $("cdrom_image").files[0];
         if(cdrom)
@@ -1993,7 +2064,7 @@ function start_emulation(profile, query_args)
         const hda_empty_size = +$("hda_empty_size")?.value;
         if(hda_empty_size)
         {
-            const size = hda_empty_size * 1024 * 1024;
+            const size = Math.min(1, Math.max(MAX_ARRAY_BUFFER_SIZE_MB, hda_empty_size)) * 1024 * 1024;
             settings.hda = { buffer: new ArrayBuffer(size) };
             new_query_args.set("hda.empty", String(size));
         }
@@ -2005,8 +2076,8 @@ function start_emulation(profile, query_args)
         const hdb_empty_size = +$("hdb_empty_size")?.value;
         if(hdb_empty_size)
         {
-            const size = hdb_empty_size * 1024 * 1024;
-            settings.hdb = { buffer: new ArrayBuffer(hdb_empty_size * 1024 * 1024) };
+            const size = Math.min(1, Math.max(MAX_ARRAY_BUFFER_SIZE_MB, hdb_empty_size)) * 1024 * 1024;
+            settings.hdb = { buffer: new ArrayBuffer(hdb_empty_size) };
             new_query_args.set("hdb.empty", String(size));
         }
         const multiboot = $("multiboot_image")?.files[0];
@@ -2102,6 +2173,7 @@ function start_emulation(profile, query_args)
         bios: settings.bios,
         vga_bios: settings.vga_bios,
         fda: settings.fda,
+        fdb: settings.fdb,
         hda: settings.hda,
         hdb: settings.hdb,
         cdrom: settings.cdrom,
@@ -2174,6 +2246,11 @@ function start_emulation(profile, query_args)
                 emulator.serial0_send(query_args.get("s") + "\n");
             }, 25);
         }
+
+        if(query_args?.has("theatre") && bool_arg(query_args?.get("theatre")))
+        {
+            $("toggle_theatre").click();
+        }
     });
 
     emulator.add_listener("emulator-loaded", function()
@@ -2208,14 +2285,18 @@ function init_ui(profile, settings, emulator)
     $("runtime_infos").style.display = "block";
     $("screen_container").style.display = "block";
 
+    var filesystem_is_enabled = false;
+
     if(settings.filesystem)
     {
+        filesystem_is_enabled = true;
         init_filesystem_panel(emulator);
     }
     else
     {
         emulator.add_listener("9p-attach", function()
         {
+            filesystem_is_enabled = true;
             init_filesystem_panel(emulator);
         });
     }
@@ -2264,6 +2345,122 @@ function init_ui(profile, settings, emulator)
         emulator.mouse_set_enabled(mouse_is_enabled);
         $("toggle_mouse").value = (mouse_is_enabled ? "Dis" : "En") + "able mouse";
         $("toggle_mouse").blur();
+    };
+
+    if(profile?.mouse_disabled_default)
+    {
+        $("toggle_mouse").onclick();
+    }
+
+    var theatre_mode = false;
+    var theatre_ui = true;
+    var theatre_zoom_to_fit = false;
+
+    function zoom_to_fit()
+    {
+        // reset size
+        emulator.screen_set_scale(1, 1);
+
+        const emulator_screen = $("screen_container").getBoundingClientRect();
+        const emulator_screen_width = emulator_screen.width;
+        const emulator_screen_height = emulator_screen.height;
+
+        const viewport_screen_width = window.innerWidth;
+        const viewport_screen_height = window.innerHeight;
+
+        const n = Math.min(viewport_screen_width / emulator_screen_width, viewport_screen_height / emulator_screen_height);
+        emulator.screen_set_scale(n, n);
+    }
+
+    /**
+     * @param {boolean} enabled
+     */
+    function enable_theatre_ui(enabled)
+    {
+        theatre_ui = enabled;
+
+        $("runtime_options").style.display = theatre_ui ? "block" : "none";
+        $("runtime_infos").style.display = theatre_ui ? "block" : "none";
+        $("filesystem_panel").style.display = (filesystem_is_enabled && theatre_ui) ? "block" : "none";
+
+        $("toggle_ui").value = (theatre_ui ? "Hide" : "Show") + " UI";
+    }
+
+    /**
+     * @param {boolean} enabled
+     */
+    function enable_zoom_to_fit(enabled)
+    {
+        theatre_zoom_to_fit = enabled;
+        $("scale").disabled = theatre_zoom_to_fit;
+
+        if(theatre_zoom_to_fit)
+        {
+            window.addEventListener("resize", zoom_to_fit, true);
+            emulator.add_listener("screen-set-size", zoom_to_fit);
+
+            zoom_to_fit();
+        }
+        else
+        {
+            window.removeEventListener("resize", zoom_to_fit, true);
+            emulator.remove_listener("screen-set-size", zoom_to_fit);
+
+            const n = parseFloat($("scale").value) || 1;
+            emulator.screen_set_scale(n, n);
+        }
+
+        $("toggle_zoom_to_fit").value = (theatre_zoom_to_fit ? "Dis" : "En") + "able zoom to fit";
+    }
+
+    /**
+     * @param {boolean} enabled
+     */
+    function enable_theatre_mode(enabled)
+    {
+        theatre_mode = enabled;
+
+        if(!theatre_ui)
+        {
+            enable_theatre_ui(true);
+        }
+
+        if(!theatre_mode && theatre_zoom_to_fit)
+        {
+            enable_zoom_to_fit(false);
+        }
+
+        for(const el of ["screen_container", "runtime_options", "runtime_infos", "filesystem_panel"])
+        {
+            $(el).classList.toggle("theatre_" + el);
+        }
+
+        $("theatre_background").style.display = theatre_mode ? "block" : "none";
+        $("toggle_zoom_to_fit").style.display = theatre_mode ? "inline" : "none";
+        $("toggle_ui").style.display = theatre_mode ? "block" : "none";
+
+        // hide scrolling
+        document.body.style.overflow = theatre_mode ? "hidden" : "visible";
+
+        $("toggle_theatre").value = (theatre_mode ? "Dis" : "En") + "able theatre mode";
+    }
+
+    $("toggle_ui").onclick = function()
+    {
+        enable_theatre_ui(!theatre_ui);
+        $("toggle_ui").blur();
+    };
+
+    $("toggle_theatre").onclick = function()
+    {
+        enable_theatre_mode(!theatre_mode);
+        $("toggle_theatre").blur();
+    };
+
+    $("toggle_zoom_to_fit").onclick = function()
+    {
+        enable_zoom_to_fit(!theatre_zoom_to_fit);
+        $("toggle_zoom_to_fit").blur();
     };
 
     var last_tick = 0;
@@ -2480,7 +2677,7 @@ function init_ui(profile, settings, emulator)
     $("change_fda_image").value = settings.fda ? "Eject floppy image" : "Insert floppy image";
     $("change_fda_image").onclick = function()
     {
-        if(emulator.v86.cpu.devices.fdc.fda_image)
+        if(emulator.get_disk_fda())
         {
             emulator.eject_fda();
             $("change_fda_image").value = "Insert floppy image";
@@ -2501,6 +2698,32 @@ function init_ui(profile, settings, emulator)
             file_input.click();
         }
         $("change_fda_image").blur();
+    };
+
+    $("change_fdb_image").value = settings.fdb ? "Eject second floppy image" : "Insert second floppy image";
+    $("change_fdb_image").onclick = function()
+    {
+        if(emulator.get_disk_fdb())
+        {
+            emulator.eject_fdb();
+            $("change_fdb_image").value = "Insert second floppy image";
+        }
+        else
+        {
+            const file_input = document.createElement("input");
+            file_input.type = "file";
+            file_input.onchange = async function(e)
+            {
+                const file = file_input.files[0];
+                if(file)
+                {
+                    await emulator.set_fdb({ buffer: file });
+                    $("change_fdb_image").value = "Eject second floppy image";
+                }
+            };
+            file_input.click();
+        }
+        $("change_fdb_image").blur();
     };
 
     $("change_cdrom_image").value = settings.cdrom ? "Eject CD image" : "Insert CD image";
@@ -2724,9 +2947,9 @@ function init_ui(profile, settings, emulator)
         emulator.screen_go_fullscreen();
     };
 
-    $("screen_container").onclick = function()
+    $("screen_container").onclick = function(e)
     {
-        if(emulator.is_running() && emulator.speaker_adapter && emulator.speaker_adapter.audio_context.state === "suspended")
+        if(emulator.is_running() && emulator.speaker_adapter?.audio_context?.state === "suspended")
         {
             emulator.speaker_adapter.audio_context.resume();
         }
@@ -2735,19 +2958,18 @@ function init_ui(profile, settings, emulator)
         {
             emulator.lock_mouse();
         }
-        else
+
+        // allow text selection
+        if(window.getSelection().isCollapsed)
         {
-            // allow text selection
-            if(window.getSelection().isCollapsed)
-            {
-                const phone_keyboard = document.getElementsByClassName("phone_keyboard")[0];
+            const phone_keyboard = document.getElementsByClassName("phone_keyboard")[0];
 
-                // stop mobile browser from scrolling into view when the keyboard is shown
-                phone_keyboard.style.top = document.body.scrollTop + 100 + "px";
-                phone_keyboard.style.left = document.body.scrollLeft + 100 + "px";
+            phone_keyboard.style.top = window.scrollY + e.clientY + 20 + "px";
+            phone_keyboard.style.left = window.scrollX + e.clientX + "px";
 
-                phone_keyboard.focus();
-            }
+            // clean after previous input
+            phone_keyboard.value = "";
+            phone_keyboard.focus();
         }
     };
 
@@ -2757,11 +2979,6 @@ function init_ui(profile, settings, emulator)
     phone_keyboard.setAttribute("autocapitalize", "off");
     phone_keyboard.setAttribute("spellcheck", "false");
     phone_keyboard.tabIndex = 0;
-
-    $("screen_container").addEventListener("mousedown", e =>
-    {
-        phone_keyboard.focus();
-    }, false);
 
     $("take_screenshot").onclick = function()
     {
@@ -2927,6 +3144,7 @@ function debug_start(emulator)
 
     // helps debugging
     window.cpu = cpu;
+    window.h = h;
     window.dump_file = dump_file;
 }
 

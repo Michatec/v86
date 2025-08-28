@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use crate::cpu::arith::*;
+use crate::cpu::cpu::js;
 use crate::cpu::cpu::*;
 use crate::cpu::fpu::*;
 use crate::cpu::global_pointers::*;
@@ -994,7 +995,6 @@ pub unsafe fn instr32_99() { write_reg32(EDX, read_reg32(EAX) >> 31); }
 pub unsafe fn instr16_9A(new_ip: i32, new_cs: i32) {
     // callf
     far_jump(new_ip, new_cs, true, false);
-    dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr32_9A(new_ip: i32, new_cs: i32) {
@@ -1004,7 +1004,6 @@ pub unsafe fn instr32_9A(new_ip: i32, new_cs: i32) {
         }
     }
     far_jump(new_ip, new_cs, true, true);
-    dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr_9B() {
@@ -2056,13 +2055,11 @@ pub unsafe fn instr32_E9(imm32s: i32) {
 pub unsafe fn instr16_EA(new_ip: i32, cs: i32) {
     // jmpf
     far_jump(new_ip, cs, false, false);
-    dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr32_EA(new_ip: i32, cs: i32) {
     // jmpf
     far_jump(new_ip, cs, false, true);
-    dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 
 pub unsafe fn instr16_EB(imm8: i32) {
@@ -2166,12 +2163,12 @@ pub unsafe fn instr_F4() {
     // due it will immediately call call_interrupt_vector and continue
     // execution without an unnecessary cycle through do_run
     if *flags & FLAG_INTERRUPT != 0 {
-        run_hardware_timers(*acpi_enabled, microtick());
+        js::run_hardware_timers(*acpi_enabled, js::microtick());
         handle_irqs();
     }
     else {
         // execution can never resume (until NMIs are supported)
-        cpu_event_halt();
+        js::cpu_event_halt();
     }
 }
 #[no_mangle]
@@ -2390,7 +2387,6 @@ pub unsafe fn instr16_FF_3_mem(addr: i32) {
     let new_ip = return_on_pagefault!(safe_read16(addr));
     let new_cs = return_on_pagefault!(safe_read16(addr + 2));
     far_jump(new_ip, new_cs, true, false);
-    dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 pub unsafe fn instr16_FF_4_helper(data: i32) {
     // jmp near
@@ -2413,7 +2409,6 @@ pub unsafe fn instr16_FF_5_mem(addr: i32) {
     let new_ip = return_on_pagefault!(safe_read16(addr));
     let new_cs = return_on_pagefault!(safe_read16(addr + 2));
     far_jump(new_ip, new_cs, false, false);
-    dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 pub unsafe fn instr16_FF_6_mem(addr: i32) {
     return_on_pagefault!(push16(return_on_pagefault!(safe_read16(addr))));
@@ -2454,7 +2449,6 @@ pub unsafe fn instr32_FF_3_mem(addr: i32) {
         }
     }
     far_jump(new_ip, new_cs, true, true);
-    dbg_assert!(*is_32 || new_ip < 0x10000);
 }
 
 pub unsafe fn instr32_FF_4_helper(data: i32) {
@@ -2483,7 +2477,6 @@ pub unsafe fn instr32_FF_5_mem(addr: i32) {
         }
     }
     far_jump(new_ip, new_cs, false, true);
-    dbg_assert!(*is_32 || new_ip < 0x10000);
 }
 pub unsafe fn instr32_FF_6_mem(addr: i32) {
     return_on_pagefault!(push32(return_on_pagefault!(safe_read32s(addr))));

@@ -2,7 +2,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
 <title>v86 (debug)</title>
-<meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no,interactive-widget=resizes-content">
 
 <script src="build/capstone-x86.min.js"></script>
 <script src="build/libwabt.cjs"></script>
@@ -87,17 +87,22 @@
 
             <tr>
                 <td><label for="floppy_image">Floppy disk image</label></td>
-                <td><input type="file" id="floppy_image"><br></td>
+                <td><input type="file" id="fda_image"> or <a id="fda_toggle_empty_disk">create empty floppy disk</a><br></td>
+            </tr>
+
+            <tr>
+                <td><label for="floppy_image">Second floppy disk image</label></td>
+                <td><input type="file" id="fdb_image"> or <a id="fdb_toggle_empty_disk">create empty floppy disk</a><br></td>
             </tr>
 
             <tr>
                 <td><label for="hda_image">Hard disk image</label></td>
-                <td><input type="file" id="hda_image"> or <a id="hda_toggle_empty_disk">create empty disk</a><br></td>
+                <td><input type="file" id="hda_image"> or <a id="hda_toggle_empty_disk">create empty hard disk</a><br></td>
             </tr>
 
             <tr>
                 <td>Second hard disk image</td>
-                <td><input type="file" id="hdb_image"> or <a id="hdb_toggle_empty_disk">create empty disk</a><br></td>
+                <td><input type="file" id="hdb_image"> or <a id="hdb_toggle_empty_disk">create empty hard disk</a><br></td>
             </tr>
 
             <tr>
@@ -212,6 +217,7 @@
         <input type="button" value="Get second hard disk image" id="get_hdb_image">
         <input type="button" value="Get CD-ROM image" id="get_cdrom_image">
         <input type="button" value="Insert floppy image" id="change_fda_image">
+        <input type="button" value="Insert second floppy image" id="change_fdb_image">
         <input type="button" value="Insert CD image" id="change_cdrom_image">
         <input type="button" value="Save State" id="save_state">
         <input type="button" value="Load State" id="load_state"> <input type="file" style="display: none" id="load_state_input">
@@ -222,13 +228,13 @@
         <input type="button" value="Go fullscreen" id="fullscreen">
         <input type="button" value="Take screenshot" id="take_screenshot">
         <input type="button" value="Mute" id="mute">
+        <input type="button" value="Enable theatre mode" id="toggle_theatre">
+        <input type="button" style="display: none" value="Enable zoom to fit" id="toggle_zoom_to_fit">
 
         <label>
             Scale:
             <input type="number" min="0.25" step="0.25" value="1.0" id="scale" style="width: 50px">
         </label>
-
-        <br>
     </div>
 
     <pre style="margin: 0" id="log_levels"></pre>
@@ -302,3 +308,6 @@
 </textarea>
 
 <div id="terminal"></div>
+
+<input type="button" value="Hide UI" id="toggle_ui" style="display: none">
+<div id="theatre_background" style="display: none"></div>

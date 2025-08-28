@@ -230,10 +230,24 @@ export interface V86Options {
         baseurl?: string;
 
         /**
-         * A directory of 9p files, as created by [fs2json](https://github.com/copy/v86/blob/master/tools/fs2json.py).
+         * A directory of 9p files, as created by [copy-to-sha256.py](https://github.com/copy/v86/blob/master/tools/copy-to-sha256.py).
          * For more details, see docs/filesystem.md
          */
         basefs?: string;
+
+        /**
+         * A function that will be called for each 9p request.
+         * If specified, this will back Virtio9p instead of a filesystem.
+         * Use this to build or connect to a custom 9p server.
+         */
+        handle9p?: (reqbuf: Uint8Array, reply: (replybuf: Uint8Array) => void) => void;
+
+        /**
+         * A URL to a websocket proxy for 9p.
+         * If specified, this will back Virtio9p instead of a filesystem.
+         * Use this to connect to a custom 9p server over websocket.
+         */
+        proxy_url?: string;
     };
 
     /**
