@@ -68,9 +68,11 @@ function show_progress(e)
     const el = $("loading");
     el.style.display = "block";
 
-    if(e.file_name.endsWith(".wasm"))
+    const file_name = e.file_name.split("?", 1)[0];
+
+    if(file_name.endsWith(".wasm"))
     {
-        const parts = e.file_name.split("/");
+        const parts = file_name.split("/");
         el.textContent = "Fetching " + parts[parts.length - 1] + " ...";
         return;
     }
@@ -294,28 +296,30 @@ function onload()
             id: "haiku",
             memory_size: 512 * 1024 * 1024,
             hda: {
-                url: host + "haiku-v4/.img",
-                size: 1 * 1024 * 1024 * 1024,
+                url: host + "haiku-v5/.img",
+                size: 1342177280,
                 async: true,
                 fixed_chunk_size: 1024 * 1024,
                 use_parts: true,
             },
-            state: { url: host + "haiku_state-v4.bin.zst" },
+            state: { url: host + "haiku_state-v5.bin.zst" },
             name: "Haiku",
             homepage: "https://www.haiku-os.org/",
+            acpi: true,
         },
         {
             id: "haiku-boot",
             memory_size: 512 * 1024 * 1024,
             hda: {
-                url: host + "haiku-v4/.img",
-                size: 1 * 1024 * 1024 * 1024,
+                url: host + "haiku-v5/.img",
+                size: 1342177280,
                 async: true,
                 fixed_chunk_size: 1024 * 1024,
                 use_parts: true,
             },
             name: "Haiku",
             homepage: "https://www.haiku-os.org/",
+            acpi: true,
         },
         {
             id: "beos",
@@ -1481,6 +1485,83 @@ function onload()
             memory_size: 512 * 1024 * 1024,
             homepage: "https://archhurd.org/",
         },
+        {
+            id: "prettyos",
+            name: "PrettyOS",
+            fda: {
+                url: host + "prettyos.img",
+                size: 1474560,
+                async: false,
+            },
+            homepage: "https://www.prettyos.de/Image.html",
+        },
+        {
+            id: "vanadium",
+            name: "Vanadium OS",
+            cdrom: {
+                url: host + "vanadiumos.iso",
+                size: 8388608,
+                async: false,
+            },
+            homepage: "https://www.durlej.net/software.html",
+        },
+        {
+            id: "xenus",
+            name: "XENUS",
+            hda: {
+                url: host + "xenushdd.img",
+                size: 52428800,
+                async: false,
+            },
+            homepage: "https://www.durlej.net/xenus/",
+        },
+        {
+            id: "mojo",
+            name: "Mojo OS",
+            cdrom: {
+                url: host + "mojo-0.2.2.iso",
+                size: 4048896,
+                async: false,
+            },
+            homepage: "https://archiveos.org/mojoos/",
+        },
+        {
+            id: "bsdos",
+            memory_size: 128 * 1024 * 1024,
+            name: "BSD/OS",
+            hda: {
+                url: host + "bsdos43/.img.zst",
+                size: 1024 * 1024 * 1024,
+                async: true,
+                fixed_chunk_size: 1024 * 1024,
+                use_parts: true,
+            },
+            state: { url: host + "bsdos43_state.bin" },
+            homepage: "https://en.wikipedia.org/wiki/BSD/OS",
+        },
+        {
+            id: "bsdos-boot",
+            memory_size: 128 * 1024 * 1024,
+            name: "BSD/OS",
+            hda: {
+                url: host + "bsdos43/.img.zst",
+                size: 1024 * 1024 * 1024,
+                async: true,
+                fixed_chunk_size: 1024 * 1024,
+                use_parts: true,
+            },
+            homepage: "https://en.wikipedia.org/wiki/BSD/OS",
+        },
+        {
+            id: "asuro",
+            name: "Asuro",
+            cdrom: {
+                url: host + "asuro.iso",
+                size: 5361664,
+                async: false,
+            },
+            homepage: "https://asuro.xyz/",
+        },
     ];
 
     if(DEBUG)
@@ -1667,7 +1748,7 @@ function onload()
         };
     }
 
-    const os_info = Array.from(document.querySelectorAll("#oses tbody tr")).map(element =>
+    const os_info = Array.from(document.querySelectorAll("#oses a.tr")).map(element =>
     {
         const [_, size_raw, unit] = element.children[1].textContent.match(/([\d\.]+)\+? (\w+)/);
         let size = +size_raw;
@@ -1762,6 +1843,18 @@ function onload()
         {
             os.element.style.display = conjunction.every(disjunction => disjunction.some(filter => filter.condition(os))) ? "" : "none";
         }
+    }
+
+    if($("reset_filters"))
+    {
+        $("reset_filters").onclick = function()
+        {
+            for(const element of document.querySelectorAll("#filter input[type=checkbox]"))
+            {
+                element.checked = false;
+            }
+            update_filters();
+        };
     }
 
     function set_proxy_value(id, value)

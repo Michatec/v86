@@ -553,9 +553,9 @@ if(cluster.isPrimary)
                     on_text: "Compress okay",
                     run:
                         RUN_SLOW_TESTS ?
-                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Files send via emulator appear in' ; sleep 2; echo v86-in-v86 okay\n"
+                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Files send via emulator appear in' ; sleep 2; echo; echo v86-in-v86 okay\n"
                         :
-                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Kernel command line:' ; sleep 2; echo v86-in-v86 okay\n",
+                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Kernel command line:' ; sleep 2; echo; echo v86-in-v86 okay\n",
                 },
                 {
                     on_text: "v86-in-v86 okay",
@@ -665,8 +665,8 @@ if(cluster.isPrimary)
             skip_if_disk_image_missing: true,
             timeout: 60,
             memory_size: 512 * 1024 * 1024,
-            hda: root_path + "/images/haiku-v4.img",
-            state: root_path + "/images/haiku_state-v4.bin.zst",
+            hda: root_path + "/images/haiku-v5.img",
+            state: root_path + "/images/haiku_state-v5.bin.zst",
             actions: [
                 {
                     after: 2 * 1000,
@@ -676,6 +676,7 @@ if(cluster.isPrimary)
             expected_serial_text: [
                 "121393",
             ],
+            acpi: true,
         },
         {
             name: "9front",
@@ -793,6 +794,49 @@ if(cluster.isPrimary)
                 },
             ],
             expected_texts: ["login:", "We'd like your feedback", "# "],
+        },
+        {
+            name: "Mojo OS",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            cdrom: root_path + "/images/mojo-0.2.2.iso",
+            actions: [
+                {
+                    on_text: "/> ",
+                    run: "help\n",
+                },
+            ],
+            expected_texts: ["Mojo test shell", "See manual pages for more information"],
+            expected_serial_text: [" ===> Shell loaded"],
+            expect_mouse_registered: true,
+        },
+        {
+            name: "Vanadium OS",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            cdrom: root_path + "/images/vanadiumos.iso",
+            actions: [
+                { after: 2000, run: " " },
+                { after: 2100, run: " " },
+                { after: 2200, run: " " },
+                { after: 2300, run: " " },
+                { after: 2400, run: " " },
+                { after: 2500, run: " " },
+                { after: 2600, run: " " },
+                { after: 2700, run: " " },
+                { after: 2800, run: "c" },
+            ],
+            expect_mouse_registered: true,
+            expect_graphical_mode: true,
+        },
+        {
+            name: "Asuro",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            cdrom: root_path + "/images/asuro.iso",
+            expect_mouse_registered: true,
+            expect_graphical_mode: true,
+            expected_serial_text: ["Asuro Booted Correctly!"],
         },
         {
             name: "Mobius",
@@ -1489,8 +1533,8 @@ function run_test(test, done)
                 timeouts.push(
                     setTimeout(() => {
                         if(VERBOSE) console.error("Sending '%s'", action.run);
-                        if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 5);
-                        else emulator.keyboard_send_scancodes(action.run, 5);
+                        if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
+                        else emulator.keyboard_send_scancodes(action.run, 10);
                     }, action.after || 0)
                 );
             }
@@ -1545,8 +1589,8 @@ function run_test(test, done)
             timeouts.push(
                 setTimeout(() => {
                     if(VERBOSE) console.error("Sending '%s'", action.run);
-                    if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 5);
-                    else emulator.keyboard_send_scancodes(action.run, 5);
+                    if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
+                    else emulator.keyboard_send_scancodes(action.run, 10);
                 }, action.after || 0)
             );
         }
